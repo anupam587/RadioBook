@@ -1,0 +1,940 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RadioBook — Human-Like AI Audiobooks</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,700;1,400;1,500&family=Plus+Jakarta+Sans:wght@300;400;500;600&family=JetBrains+Mono:wght@300;400&display=swap" rel="stylesheet">
+
+<style>
+/* ─── RESET & BASE ─── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  background: #FAFAF8;
+  color: #1A1A2E;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ─── CSS VARIABLES ─── */
+:root {
+  --bg: #FAFAF8;
+  --bg2: #F3F1EC;
+  --ink: #1A1A2E;
+  --ink2: #4A4A6A;
+  --ink3: #8A8AAA;
+  --teal: #0A7E6E;
+  --teal-light: #12A090;
+  --teal-pale: #E8F5F3;
+  --amber: #E8962A;
+  --amber-pale: #FDF3E3;
+  --rose: #C45C6A;
+  --shadow-sm: 0 2px 12px rgba(26,26,46,0.06);
+  --shadow-md: 0 8px 32px rgba(26,26,46,0.10);
+  --shadow-lg: 0 24px 64px rgba(26,26,46,0.12);
+  --radius: 16px;
+  --radius-sm: 8px;
+}
+
+/* ─── NAV ─── */
+nav {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 200;
+  padding: 0 5vw;
+  height: 68px;
+  display: flex; align-items: center; justify-content: space-between;
+  background: rgba(250,250,248,0.85);
+  backdrop-filter: blur(20px) saturate(1.4);
+  border-bottom: 1px solid rgba(26,26,46,0.06);
+  transition: box-shadow 0.3s;
+}
+nav.scrolled { box-shadow: var(--shadow-sm); }
+
+.logo {
+  display: flex; align-items: center; gap: 10px;
+  text-decoration: none;
+}
+.logo-mark {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, var(--teal), #0D9E8C);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(10,126,110,0.3);
+}
+.logo-mark svg { width: 18px; height: 18px; fill: white; }
+.logo-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.3rem; font-weight: 700;
+  color: var(--ink); letter-spacing: -0.01em;
+}
+.logo-text span { color: var(--teal); }
+
+.nav-links {
+  display: flex; align-items: center; gap: 2rem;
+  list-style: none;
+}
+.nav-links a {
+  font-size: 0.875rem; font-weight: 500;
+  color: var(--ink2); text-decoration: none;
+  transition: color 0.2s;
+}
+.nav-links a:hover { color: var(--teal); }
+
+/* ─── HERO ─── */
+#hero {
+  min-height: 100vh;
+  padding: 120px 5vw 80px;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  position: relative; overflow: hidden;
+  text-align: center;
+}
+
+.hero-bg {
+  position: absolute; inset: 0; z-index: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 20% 10%, rgba(10,126,110,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 50% at 80% 20%, rgba(232,150,42,0.06) 0%, transparent 55%),
+    radial-gradient(ellipse 70% 60% at 50% 90%, rgba(10,126,110,0.05) 0%, transparent 60%),
+    #FAFAF8;
+}
+
+.hero-circle {
+  position: absolute; border-radius: 50%;
+  border: 1px solid rgba(10,126,110,0.08);
+  animation: rotateCircle 40s linear infinite;
+}
+.hero-circle.c1 { width: 600px; height: 600px; top: 50%; left: 50%; transform: translate(-50%,-50%); }
+.hero-circle.c2 { width: 900px; height: 900px; top: 50%; left: 50%; transform: translate(-50%,-50%); animation-direction: reverse; animation-duration: 60s; }
+.hero-circle.c3 { width: 1200px; height: 1200px; top: 50%; left: 50%; transform: translate(-50%,-50%); animation-duration: 80s; }
+@keyframes rotateCircle {
+  from { transform: translate(-50%,-50%) rotate(0deg); }
+  to { transform: translate(-50%,-50%) rotate(360deg); }
+}
+
+.hero-content { position: relative; z-index: 1; max-width: 860px; }
+
+.hero-pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--teal); background: var(--teal-pale);
+  padding: 0.45rem 1.1rem; border-radius: 100px;
+  margin-bottom: 2rem;
+  border: 1px solid rgba(10,126,110,0.15);
+  animation: fadeUp 0.8s ease both;
+}
+.pill-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--teal); animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:0.4;transform:scale(0.7)} }
+
+h1 {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2.8rem, 6vw, 5.2rem);
+  font-weight: 700; line-height: 1.08; letter-spacing: -0.025em;
+  color: var(--ink);
+  animation: fadeUp 0.8s 0.1s ease both;
+}
+h1 em {
+  font-style: italic; color: var(--teal);
+  background: linear-gradient(135deg, var(--teal), #16B8A4);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+
+.hero-sub {
+  font-size: clamp(1rem, 1.8vw, 1.2rem);
+  font-weight: 400; line-height: 1.8;
+  color: var(--ink2); max-width: 580px;
+  margin: 1.75rem auto 2.5rem;
+  animation: fadeUp 0.8s 0.2s ease both;
+}
+
+.hero-cta {
+  display: flex; align-items: center; justify-content: center;
+  gap: 1rem; flex-wrap: wrap;
+  animation: fadeUp 0.8s 0.3s ease both;
+}
+
+.btn-primary {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1rem; font-weight: 600;
+  padding: 0.9rem 2.4rem; border-radius: 100px;
+  background: linear-gradient(135deg, var(--teal) 0%, #0D9E8C 100%);
+  color: white; border: none; cursor: pointer;
+  text-decoration: none; display: inline-block;
+  box-shadow: 0 8px 28px rgba(10,126,110,0.32);
+  transition: all 0.25s;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 12px 36px rgba(10,126,110,0.42);
+}
+
+.btn-secondary {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1rem; font-weight: 500;
+  padding: 0.9rem 2rem; border-radius: 100px;
+  background: transparent;
+  color: var(--ink); border: 1.5px solid rgba(26,26,46,0.15);
+  cursor: pointer; text-decoration: none; display: inline-flex;
+  align-items: center; gap: 0.5rem;
+  transition: all 0.25s;
+}
+.btn-secondary:hover { border-color: var(--teal); color: var(--teal); }
+
+/* ─── WAVEFORM PLAYER ─── */
+.waveform-player {
+  margin: 4rem auto 0;
+  max-width: 720px; width: 100%;
+  background: white;
+  border-radius: 24px;
+  padding: 2rem 2.5rem 2.5rem;
+  box-shadow: var(--shadow-lg), 0 0 0 1px rgba(26,26,46,0.04);
+  animation: fadeUp 0.8s 0.4s ease both;
+  position: relative; z-index: 1;
+}
+
+.player-header {
+  display: flex; align-items: center; gap: 1rem;
+  margin-bottom: 1.75rem;
+}
+
+.player-book-cover {
+  width: 52px; height: 68px; border-radius: 6px;
+  background: linear-gradient(135deg, #1A1A2E, #2D2D4E);
+  flex-shrink: 0; position: relative;
+  box-shadow: 3px 3px 12px rgba(0,0,0,0.2);
+  overflow: hidden;
+}
+.player-book-cover::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+  background: linear-gradient(to right, rgba(255,255,255,0.08), transparent);
+}
+.player-book-cover::after {
+  content: '📖';
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.4rem;
+}
+
+.player-meta { flex: 1; text-align: left; }
+.player-title {
+  font-family: 'Playfair Display', serif;
+  font-size: 1rem; font-weight: 600; color: var(--ink);
+  margin-bottom: 0.2rem;
+}
+.player-author {
+  font-size: 0.8rem; color: var(--ink3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.player-badge {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase;
+  padding: 0.3rem 0.75rem; border-radius: 100px;
+  background: var(--teal-pale); color: var(--teal);
+  border: 1px solid rgba(10,126,110,0.15);
+}
+
+.waveform-wrap {
+  height: 72px; position: relative;
+  display: flex; align-items: center;
+  gap: 3px; margin-bottom: 1.5rem;
+  cursor: pointer;
+}
+
+.wbar {
+  flex-shrink: 0;
+  width: 3px; border-radius: 100px;
+  background: linear-gradient(180deg, var(--teal-light) 0%, var(--teal) 100%);
+  opacity: 0.25;
+  animation: waveAnim var(--dur, 1.4s) ease-in-out infinite alternate;
+  animation-delay: var(--dl, 0s);
+  height: var(--base, 8px);
+  transition: opacity 0.3s;
+}
+.wbar.played { opacity: 0.85; }
+.wbar.active {
+  opacity: 1;
+  background: linear-gradient(180deg, #16D4BC, var(--teal));
+  box-shadow: 0 0 8px rgba(10,126,110,0.5);
+}
+
+@keyframes waveAnim {
+  from { height: var(--base, 8px); }
+  to { height: var(--peak, 40px); }
+}
+
+.waveform-playhead {
+  position: absolute; top: 0; bottom: 0;
+  width: 2px; background: var(--teal);
+  border-radius: 1px;
+  box-shadow: 0 0 8px rgba(10,126,110,0.6);
+  left: 36%;
+  animation: playheadMove 8s linear infinite;
+}
+@keyframes playheadMove { from { left: 2% } to { left: 98% } }
+
+.waveform-time {
+  display: flex; justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem; color: var(--ink3);
+  margin-bottom: 1.5rem;
+}
+.waveform-current { color: var(--teal); font-weight: 400; }
+
+.player-controls {
+  display: flex; align-items: center; justify-content: center;
+  gap: 1.5rem;
+}
+
+.ctrl-btn {
+  width: 40px; height: 40px;
+  display: flex; align-items: center; justify-content: center;
+  border: none; background: none; cursor: pointer;
+  color: var(--ink2); border-radius: 50%;
+  transition: all 0.2s; font-size: 1rem;
+}
+.ctrl-btn:hover { background: var(--bg2); color: var(--ink); }
+
+.ctrl-play {
+  width: 56px; height: 56px;
+  background: linear-gradient(135deg, var(--teal), #0D9E8C);
+  color: white; border-radius: 50%; font-size: 1.25rem;
+  box-shadow: 0 6px 20px rgba(10,126,110,0.35);
+  transition: all 0.2s;
+}
+.ctrl-play:hover {
+  transform: scale(1.08);
+  box-shadow: 0 8px 28px rgba(10,126,110,0.45);
+}
+
+.ctrl-speed {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.7rem; font-weight: 400;
+  color: var(--ink2); padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(26,26,46,0.12); border-radius: 6px;
+}
+
+/* ─── SHARED SECTION STYLES ─── */
+.section-eyebrow {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.72rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--teal); margin-bottom: 1rem;
+}
+.section-title {
+  font-family: 'Playfair Display', serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 700; color: var(--ink);
+  letter-spacing: -0.02em; line-height: 1.15;
+  margin-bottom: 1.25rem;
+}
+.section-title em { font-style: italic; color: var(--teal); }
+.section-body {
+  font-size: 1.05rem; line-height: 1.8;
+  color: var(--ink2); max-width: 520px;
+}
+
+/* ═══════════════════════════════════════
+   HOW IT WORKS — 4-COLUMN GRID
+   ═══════════════════════════════════════ */
+#how {
+  padding: 7rem 5vw;
+  background: var(--bg);
+}
+
+.how-header {
+  text-align: center;
+  margin-bottom: 4.5rem;
+}
+.how-header .section-body {
+  margin: 0 auto;
+  max-width: 540px;
+}
+
+.how-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1.5rem;
+  max-width: 1100px;
+  margin: 0 auto;
+  position: relative;
+}
+
+/* Dashed connector line */
+.how-grid::before {
+  content: '';
+  position: absolute;
+  top: 40px;
+  left: calc(12.5% + 28px);
+  right: calc(12.5% + 28px);
+  height: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(10,126,110,0.25) 0px,
+    rgba(10,126,110,0.25) 6px,
+    transparent 6px,
+    transparent 14px
+  );
+  z-index: 0;
+  pointer-events: none;
+}
+
+.how-step-card {
+  background: white;
+  border-radius: var(--radius);
+  padding: 2.25rem 1.75rem 2rem;
+  border: 1px solid rgba(26,26,46,0.06);
+  box-shadow: var(--shadow-sm);
+  text-align: center;
+  position: relative;
+  transition: transform 0.3s, box-shadow 0.3s, border-color 0.3s;
+  cursor: default;
+}
+.how-step-card:hover {
+  transform: translateY(-7px);
+  box-shadow: var(--shadow-md);
+  border-color: rgba(10,126,110,0.18);
+}
+
+/* Numbered badge */
+.step-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 28px; height: 28px;
+  border-radius: 50%;
+  background: var(--teal);
+  color: white;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.68rem;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 12px rgba(10,126,110,0.35);
+  z-index: 1;
+}
+
+.step-icon-wrap {
+  width: 58px; height: 58px;
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem;
+  background: var(--teal-pale);
+  border: 1px solid rgba(10,126,110,0.12);
+  margin: 0 auto 1.4rem;
+}
+.step-icon-wrap.amber {
+  background: var(--amber-pale);
+  border-color: rgba(232,150,42,0.15);
+}
+
+.step-card-title {
+  font-size: 1rem; font-weight: 600;
+  color: var(--ink); margin-bottom: 0.6rem;
+  line-height: 1.3;
+}
+.step-card-body {
+  font-size: 0.875rem; line-height: 1.72;
+  color: var(--ink2);
+}
+
+/* ─── FEATURES ─── */
+#features {
+  padding: 7rem 5vw;
+  background: linear-gradient(180deg, #F0EDE5 0%, var(--bg) 100%);
+}
+.features-header { text-align: center; margin-bottom: 4.5rem; }
+.features-header .section-body { margin: 0 auto; max-width: 560px; text-align: center; }
+
+.features-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 1.5rem;
+  max-width: 1100px; margin: 0 auto;
+}
+.feat-card {
+  background: white; border-radius: var(--radius);
+  padding: 2.25rem 2rem;
+  border: 1px solid rgba(26,26,46,0.05);
+  box-shadow: var(--shadow-sm);
+  transition: all 0.3s;
+}
+.feat-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); }
+
+.feat-icon {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.5rem; margin-bottom: 1.4rem;
+  background: linear-gradient(135deg, var(--teal-pale), rgba(10,126,110,0.05));
+}
+.feat-icon.amber { background: linear-gradient(135deg, var(--amber-pale), rgba(232,150,42,0.05)); }
+.feat-icon.rose { background: linear-gradient(135deg, #FDE8EA, rgba(196,92,106,0.05)); }
+
+.feat-card h3 {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.2rem; font-weight: 600; color: var(--ink); margin-bottom: 0.75rem;
+}
+.feat-card p { font-size: 0.92rem; line-height: 1.75; color: var(--ink2); }
+
+.feat-tag {
+  display: inline-block; margin-top: 1.25rem;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; letter-spacing: 0.08em; text-transform: uppercase;
+  color: var(--teal); padding: 0.25rem 0.7rem;
+  background: var(--teal-pale); border-radius: 100px;
+}
+.feat-tag.amber { color: var(--amber); background: var(--amber-pale); }
+.feat-tag.rose { color: var(--rose); background: #FDE8EA; }
+
+/* ─── VOICE ACCENTS ─── */
+#accents {
+  padding: 6rem 5vw;
+  background: white;
+}
+.accents-inner {
+  max-width: 1100px; margin: 0 auto;
+  display: grid; grid-template-columns: 1.2fr 1fr; gap: 5rem; align-items: center;
+}
+.accent-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem;
+}
+.accent-chip {
+  display: flex; align-items: center; gap: 0.75rem;
+  padding: 0.9rem 1.1rem; border-radius: var(--radius-sm);
+  background: var(--bg2); border: 1px solid rgba(26,26,46,0.06);
+  cursor: pointer; transition: all 0.2s;
+}
+.accent-chip:hover, .accent-chip.active {
+  background: var(--teal-pale); border-color: rgba(10,126,110,0.2);
+}
+.accent-flag { font-size: 1.4rem; }
+.accent-info-name { font-size: 0.85rem; font-weight: 600; color: var(--ink); }
+.accent-info-sub {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; color: var(--ink3); text-transform: uppercase; letter-spacing: 0.05em;
+}
+.accent-play {
+  margin-left: auto; width: 28px; height: 28px; border-radius: 50%;
+  background: white; border: 1px solid rgba(26,26,46,0.1);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.7rem; color: var(--teal);
+  transition: all 0.2s; flex-shrink: 0;
+}
+.accent-chip:hover .accent-play, .accent-chip.active .accent-play {
+  background: var(--teal); color: white; border-color: transparent;
+}
+
+/* ─── FOOTER ─── */
+footer {
+  background: #111122;
+  color: rgba(255,255,255,0.4);
+  padding: 4rem 5vw 2rem;
+}
+.footer-top {
+  display: grid; grid-template-columns: 2fr 1fr 1fr 1fr;
+  gap: 4rem; margin-bottom: 3rem; padding-bottom: 3rem;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.footer-logo {
+  display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;
+  text-decoration: none;
+}
+.footer-logo-text {
+  font-family: 'Playfair Display', serif;
+  font-size: 1.2rem; font-weight: 700; color: white;
+}
+.footer-about { font-size: 0.875rem; line-height: 1.8; }
+.footer-col h4 {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em;
+  color: rgba(255,255,255,0.25); margin-bottom: 1.25rem;
+}
+.footer-col ul { list-style: none; }
+.footer-col ul li { margin-bottom: 0.7rem; }
+.footer-col ul a { font-size: 0.875rem; color: rgba(255,255,255,0.45); text-decoration: none; transition: color 0.2s; }
+.footer-col ul a:hover { color: white; }
+.footer-bottom {
+  display: flex; align-items: center; justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace; font-size: 0.68rem; letter-spacing: 0.04em;
+  flex-wrap: wrap; gap: 1rem;
+}
+
+/* ─── ANIMATIONS ─── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.reveal { opacity: 0; transform: translateY(22px); transition: opacity 0.65s ease, transform 0.65s ease; }
+.reveal.in { opacity: 1; transform: none; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 960px) {
+  .how-grid { grid-template-columns: repeat(2, 1fr); }
+  .how-grid::before { display: none; }
+  .features-grid { grid-template-columns: 1fr 1fr; }
+  .accents-inner { grid-template-columns: 1fr; }
+  .footer-top { grid-template-columns: 1fr 1fr; gap: 2.5rem; }
+  .nav-links { display: none; }
+}
+@media (max-width: 640px) {
+  .how-grid { grid-template-columns: 1fr; }
+  .features-grid { grid-template-columns: 1fr; }
+  .accent-grid { grid-template-columns: 1fr; }
+  .footer-top { grid-template-columns: 1fr; }
+  .waveform-player { padding: 1.5rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── NAV ── -->
+<nav id="navbar">
+  <a href="#" class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/>
+      </svg>
+    </div>
+    <span class="logo-text">Radio<span>Book</span></span>
+  </a>
+  <ul class="nav-links">
+    <li><a href="#how">How it Works</a></li>
+    <li><a href="#features">Features</a></li>
+    <li><a href="#accents">Voices</a></li>
+  </ul>
+</nav>
+
+<!-- ── HERO ── -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="hero-circle c1"></div>
+  <div class="hero-circle c2"></div>
+  <div class="hero-circle c3"></div>
+
+  <div class="hero-content">
+    <div class="hero-pill">
+      <span class="pill-dot"></span>
+      AI-Powered · Human-Like Voice
+    </div>
+
+    <h1>Turn Any Book Into a<br><em>Human-Like Audiobook</em></h1>
+
+    <p class="hero-sub">
+      RadioBook uses next-generation AI to narrate your books with real emotion, natural pauses, 
+      and storytelling depth — indistinguishable from a professional voice actor.
+    </p>
+
+    <div class="hero-cta">
+      <a href="#signup" class="btn-primary">Start Listening Free</a>
+      <a href="#how" class="btn-secondary">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+        See How It Works
+      </a>
+    </div>
+
+    <!-- Waveform Player -->
+    <div class="waveform-player">
+      <div class="player-header">
+        <div class="player-book-cover"></div>
+        <div class="player-meta">
+          <div class="player-title">The Midnight Library</div>
+          <div class="player-author">Matt Haig · Chapter 3</div>
+        </div>
+        <div class="player-badge">🎙️ AI Narrating</div>
+      </div>
+
+      <div class="waveform-wrap" id="heroWave"></div>
+
+      <div class="waveform-time">
+        <span class="waveform-current" id="currentTime">2:14</span>
+        <span>18:45</span>
+      </div>
+
+      <div class="player-controls">
+        <button class="ctrl-btn" title="Rewind 15s">↺ 15s</button>
+        <button class="ctrl-btn" title="Previous">⏮</button>
+        <button class="ctrl-btn ctrl-play" id="playBtn" title="Play/Pause">▶</button>
+        <button class="ctrl-btn" title="Next">⏭</button>
+        <button class="ctrl-btn ctrl-speed" title="Speed">1.0×</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── HOW IT WORKS — 4-COLUMN GRID ── -->
+<section id="how">
+  <div class="how-header reveal">
+    <div class="section-eyebrow">How It Works</div>
+    <h2 class="section-title">Books that <em>breathe</em> with life</h2>
+    <p class="section-body">Our AI doesn't just read — it understands context, emotion, and narrative arc before speaking a single word.</p>
+  </div>
+
+  <div class="how-grid">
+
+    <div class="how-step-card reveal">
+      <div class="step-badge">01</div>
+      <div class="step-icon-wrap">🧠</div>
+      <div class="step-card-title">AI Reads the Narrative</div>
+      <p class="step-card-body">Our model analyses the full book structure — detecting dialogue, tension, humour, and pacing before generating a single word of audio.</p>
+    </div>
+
+    <div class="how-step-card reveal" style="transition-delay:0.1s">
+      <div class="step-badge">02</div>
+      <div class="step-icon-wrap">🎭</div>
+      <div class="step-card-title">Emotion Engine Activates</div>
+      <p class="step-card-body">Tone, cadence, and breath patterns adapt in real-time. Dramatic scenes feel tense. Tender moments feel warm. Comedy lands naturally.</p>
+    </div>
+
+    <div class="how-step-card reveal" style="transition-delay:0.2s">
+      <div class="step-badge">03</div>
+      <div class="step-icon-wrap amber">🎙️</div>
+      <div class="step-card-title">Voices That Feel Human</div>
+      <p class="step-card-body">Choose from authentic regional accents. Each voice is crafted from thousands of hours of real human speech recordings.</p>
+    </div>
+
+    <div class="how-step-card reveal" style="transition-delay:0.3s">
+      <div class="step-badge">04</div>
+      <div class="step-icon-wrap amber">▶️</div>
+      <div class="step-card-title">Stream or Download Instantly</div>
+      <p class="step-card-body">Start listening in seconds. Save to any device, share chapters, or export to your favourite podcast app.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ── FEATURES ── -->
+<section id="features">
+  <div class="features-header reveal">
+    <div class="section-eyebrow">Features</div>
+    <h2 class="section-title">Not text-to-speech.<br><em>Text to performance.</em></h2>
+    <p class="section-body">Every feature exists to make you forget you're listening to an AI.</p>
+  </div>
+
+  <div class="features-grid">
+    <div class="feat-card reveal">
+      <div class="feat-icon">🎭</div>
+      <h3>Emotional Intelligence</h3>
+      <p>The AI detects joy, grief, suspense, and humour — and mirrors that emotion in tone, tempo, and cadence the way only a skilled actor can.</p>
+      <span class="feat-tag">Adaptive Tone</span>
+    </div>
+    <div class="feat-card reveal" style="transition-delay:0.08s">
+      <div class="feat-icon amber">⏸️</div>
+      <h3>Natural Pauses & Breath</h3>
+      <p>Strategic micro-pauses before dramatic reveals, breath sounds between long passages, and paragraph silences that feel completely organic.</p>
+      <span class="feat-tag amber">Breath Modeling</span>
+    </div>
+    <div class="feat-card reveal" style="transition-delay:0.16s">
+      <div class="feat-icon">📖</div>
+      <h3>Storytelling Mode</h3>
+      <p>Switch between Fiction, Non-Fiction, and Poetic modes. Fiction mode automatically differentiates character voices from narration.</p>
+      <span class="feat-tag">Multi-Character</span>
+    </div>
+    <div class="feat-card reveal" style="transition-delay:0.24s">
+      <div class="feat-icon rose">🌍</div>
+      <h3>Authentic Accents</h3>
+      <p>British RP, American, Australian, Irish, Indian, Nigerian, Brazilian, French, Spanish, German, Japanese, and South African — all authentically rendered.</p>
+      <span class="feat-tag rose">Global Voices</span>
+    </div>
+    <div class="feat-card reveal" style="transition-delay:0.32s">
+      <div class="feat-icon amber">📱</div>
+      <h3>Listen Everywhere</h3>
+      <p>Stream in-browser, sync across all your devices, or export to any podcast app. Sleep timers, bookmarks, and variable playback speed included.</p>
+      <span class="feat-tag amber">Cross-Platform</span>
+    </div>
+    <div class="feat-card reveal" style="transition-delay:0.4s">
+      <div class="feat-icon rose">⚡</div>
+      <h3>Instant Playback</h3>
+      <p>RadioBook's streaming engine begins narrating within 200ms of pressing play. No waiting, no buffering — just immersive listening from the first word.</p>
+      <span class="feat-tag rose">200ms Start</span>
+    </div>
+  </div>
+</section>
+
+<!-- ── ACCENTS ── -->
+<section id="accents">
+  <div class="accents-inner">
+    <div class="reveal">
+      <div class="section-eyebrow">Voice Profiles</div>
+      <h2 class="section-title">One story,<br><em>multiple voices</em></h2>
+      <p class="section-body" style="margin-bottom:1.5rem">Choose the narrator that feels right for your book. Each voice is crafted from thousands of hours of real human recordings and fine-tuned for warmth and authenticity.</p>
+    </div>
+
+    <div class="accent-grid reveal">
+      <div class="accent-chip active">
+        <span class="accent-flag">🇬🇧</span>
+        <div><div class="accent-info-name">British RP</div><div class="accent-info-sub">Classic · Warm</div></div>
+        <span class="accent-play">▶</span>
+      </div>
+      <div class="accent-chip">
+        <span class="accent-flag">🇺🇸</span>
+        <div><div class="accent-info-name">American</div><div class="accent-info-sub">Neutral · Clear</div></div>
+        <span class="accent-play">▶</span>
+      </div>
+      <div class="accent-chip">
+        <span class="accent-flag">🇦🇺</span>
+        <div><div class="accent-info-name">Australian</div><div class="accent-info-sub">Friendly · Open</div></div>
+        <span class="accent-play">▶</span>
+      </div>
+      <div class="accent-chip">
+        <span class="accent-flag">🇮🇪</span>
+        <div><div class="accent-info-name">Irish</div><div class="accent-info-sub">Lyrical · Soft</div></div>
+        <span class="accent-play">▶</span>
+      </div>
+      <div class="accent-chip">
+        <span class="accent-flag">🇮🇳</span>
+        <div><div class="accent-info-name">Indian</div><div class="accent-info-sub">Rich · Expressive</div></div>
+        <span class="accent-play">▶</span>
+      </div>
+      <div class="accent-chip">
+        <span class="accent-flag">🇳🇬</span>
+        <div><div class="accent-info-name">Nigerian</div><div class="accent-info-sub">Vibrant · Deep</div></div>
+        <span class="accent-play">▶</span>
+      </div>
+      <div class="accent-chip">
+        <span class="accent-flag">🇧🇷</span>
+        <div><div class="accent-info-name">Brazilian</div><div class="accent-info-sub">Melodic · Warm</div></div>
+        <span class="accent-play">▶</span>
+      </div>
+      <div class="accent-chip">
+        <span class="accent-flag">🇿🇦</span>
+        <div><div class="accent-info-name">South African</div><div class="accent-info-sub">Crisp · Distinctive</div></div>
+        <span class="accent-play">▶</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── FOOTER ── -->
+<footer>
+  <div class="footer-top">
+    <div>
+      <a href="#" class="footer-logo">
+        <div class="logo-mark" style="width:30px;height:30px;border-radius:8px">
+          <svg viewBox="0 0 24 24" style="width:14px;height:14px;fill:white"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02z"/></svg>
+        </div>
+        <span class="footer-logo-text">RadioBook</span>
+      </a>
+      <p class="footer-about">AI-powered audiobooks with human-like narration. Every book deserves to be heard.</p>
+    </div>
+    <div class="footer-col">
+      <h4>Product</h4>
+      <ul>
+        <li><a href="#how">How It Works</a></li>
+        <li><a href="#features">Features</a></li>
+        <li><a href="#accents">Voice Profiles</a></li>
+        <li><a href="#">Browse Books</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Company</h4>
+      <ul>
+        <li><a href="#">About</a></li>
+        <li><a href="#">Blog</a></li>
+        <li><a href="#">Careers</a></li>
+        <li><a href="#">Contact</a></li>
+      </ul>
+    </div>
+    <div class="footer-col">
+      <h4>Legal</h4>
+      <ul>
+        <li><a href="#">Privacy Policy</a></li>
+        <li><a href="#">Terms of Service</a></li>
+        <li><a href="#">Cookie Policy</a></li>
+      </ul>
+    </div>
+  </div>
+  <div class="footer-bottom">
+    <span>© 2025 RadioBook Inc. All rights reserved.</span>
+    <span>Made with ♥ for readers everywhere.</span>
+  </div>
+</footer>
+
+<script>
+/* ── Build Hero Waveform ── */
+function buildWave(container, count) {
+  const wrap = document.getElementById(container);
+  if (!wrap) return;
+  const playedCount = Math.floor(count * 0.36);
+  for (let i = 0; i < count; i++) {
+    const bar = document.createElement('div');
+    bar.className = 'wbar';
+    const center = count / 2;
+    const dist = Math.abs(i - center) / center;
+    const base = 6 + Math.random() * 4;
+    const peak = 12 + (1 - dist * 0.4) * (20 + Math.random() * 30);
+    bar.style.setProperty('--base', base + 'px');
+    bar.style.setProperty('--peak', peak + 'px');
+    bar.style.setProperty('--dur', (0.9 + Math.random() * 0.8) + 's');
+    bar.style.setProperty('--dl', (i * 0.04) + 's');
+    if (i < playedCount) bar.classList.add('played');
+    if (i === playedCount) bar.classList.add('active');
+    wrap.appendChild(bar);
+  }
+  const ph = document.createElement('div');
+  ph.className = 'waveform-playhead';
+  wrap.appendChild(ph);
+}
+buildWave('heroWave', 90);
+
+/* ── Simulate playhead time ── */
+let seconds = 134;
+const timeEl = document.getElementById('currentTime');
+setInterval(() => {
+  seconds = (seconds + 1) % (18 * 60 + 45);
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  timeEl.textContent = m + ':' + String(s).padStart(2, '0');
+}, 1000);
+
+/* ── Play button toggle ── */
+let playing = true;
+document.getElementById('playBtn').addEventListener('click', function() {
+  playing = !playing;
+  this.textContent = playing ? '▶' : '⏸';
+  document.querySelectorAll('.wbar').forEach(b => {
+    b.style.animationPlayState = playing ? 'running' : 'paused';
+  });
+  const ph = document.querySelector('.waveform-playhead');
+  if (ph) ph.style.animationPlayState = playing ? 'running' : 'paused';
+});
+
+/* ── Speed toggle ── */
+document.querySelector('.ctrl-speed').addEventListener('click', function() {
+  const speeds = ['1.0×', '1.25×', '1.5×', '1.75×', '2.0×'];
+  const current = speeds.indexOf(this.textContent);
+  this.textContent = speeds[(current + 1) % speeds.length];
+});
+
+/* ── Accent chip toggle ── */
+document.querySelectorAll('.accent-chip').forEach(chip => {
+  chip.addEventListener('click', function() {
+    document.querySelectorAll('.accent-chip').forEach(c => c.classList.remove('active'));
+    this.classList.add('active');
+  });
+});
+
+/* ── Scroll reveal ── */
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(e => {
+    if (e.isIntersecting) { e.target.classList.add('in'); observer.unobserve(e.target); }
+  });
+}, { threshold: 0.1 });
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+/* ── Nav scroll ── */
+window.addEventListener('scroll', () => {
+  document.getElementById('navbar').classList.toggle('scrolled', window.scrollY > 20);
+});
+
+/* ── Smooth anchor scroll ── */
+document.querySelectorAll('a[href^="#"]').forEach(a => {
+  a.addEventListener('click', e => {
+    const target = document.querySelector(a.getAttribute('href'));
+    if (target) { e.preventDefault(); target.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+});
+</script>
+</body>
+</html>
