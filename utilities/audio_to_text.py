@@ -4,7 +4,7 @@ Audio URL → WAV + Text Transcriber
 Downloads a WAV (or any audio) file from an HTTP URL and transcribes it to text.
 
 Requirements:
-    pip install requests openai-whisper webrtcvad pydub numpy
+    pip install requests openai-whisper webrtcvad pydub numpy boto3
 
     # For faster/better transcription alternatives:
     pip install faster-whisper          # faster local transcription
@@ -14,6 +14,12 @@ Requirements:
     # macOS:   brew install ffmpeg
     # Ubuntu:  sudo apt install ffmpeg
     # Windows: https://ffmpeg.org/download.html
+
+    # AWS credentials must be configured in ~/.aws/credentials under [radiobook] profile:
+    # [radiobook]
+    # aws_access_key_id     = YOUR_KEY
+    # aws_secret_access_key = YOUR_SECRET
+    # region                = us-east-1
 
 Usage:
     python audio_to_text.py <audio_url> [options]
@@ -85,6 +91,101 @@ def download_audio(url: str, dest_path: str) -> str:
 
     print(f"\n  ✔ Saved to: {dest_path}  ({os.path.getsize(dest_path)/1024/1024:.2f} MB)")
     return dest_path
+
+
+# ── S3 Upload ──────────────────────────────────────────────────────────────────
+
+S3_BUCKET     = "radiobook-org"
+S3_PREFIX     = "RadioBook-Data/AudioTextData"   # no leading/trailing slash
+S3_REGION     = "us-east-1"
+AWS_PROFILE   = "radiobook"
+
+
+def upload_to_s3(local_path: str, s3_key: str) -> str:
+    """
+    Upload a local file to S3 using the 'radiobook' AWS profile.
+
+    Args:
+        local_path : Absolute path to the local file
+        s3_key     : Full S3 object key (e.g. RadioBook-Data/AudioTextData/foo.wav)
+
+    Returns:
+        The public S3 URI: s3://radiobook-org/<s3_key>
+    """
+    try:
+        import boto3
+        from botocore.exceptions import BotoCoreError, ClientError
+    except ImportError:
+        raise RuntimeError("boto3 not installed. Run: python3 -m pip install boto3")
+
+    session = boto3.Session(profile_name=AWS_PROFILE, region_name=S3_REGION)
+    s3 = session.client("s3")
+
+    file_size = os.path.getsize(local_path)
+    uploaded = [0]
+
+    def _progress(bytes_transferred):
+        uploaded[0] += bytes_transferred
+        pct = uploaded[0] / file_size * 100 if file_size else 0
+        print(f"\r    {pct:.1f}%  ({uploaded[0]/1024/1024:.2f} / {file_size/1024/1024:.2f} MB)",
+              end="", flush=True)
+
+    try:
+        s3.upload_file(
+            local_path,
+            S3_BUCKET,
+            s3_key,
+            Callback=_progress,
+        )
+        print()  # newline after progress
+    except (BotoCoreError, ClientError) as e:
+        raise RuntimeError(f"S3 upload failed for {local_path}: {e}")
+
+    return f"s3://{S3_BUCKET}/{s3_key}"
+
+
+def _local_relative_key(local_path: str) -> str:
+    """
+    Convert an absolute local path to a path relative to cwd.
+    e.g. /Users/anupam/RadioBook/show1/ep1.wav  ->  show1/ep1.wav
+    Falls back to just the filename if the path is outside cwd.
+    """
+    try:
+        return str(Path(local_path).relative_to(Path.cwd()))
+    except ValueError:
+        return os.path.basename(local_path)
+
+
+def upload_outputs_to_s3(wav_path: str, txt_path: str, base_name: str) -> dict:
+    """
+    Upload both WAV and TXT to S3, preserving the local sub-directory
+    structure under the configured S3 prefix.
+
+    Example — running from /Users/anupam/RadioBook with files in show1/:
+        Local : /Users/anupam/RadioBook/show1/ep1.wav
+        S3    : s3://radiobook-org/RadioBook-Data/AudioTextData/show1/ep1.wav
+
+    Returns:
+        dict with keys: wav_s3_uri, txt_s3_uri
+    """
+    print(f"\n[5/5] Uploading to S3 bucket: s3://{S3_BUCKET}/{S3_PREFIX}/")
+
+    wav_key = f"{S3_PREFIX}/{_local_relative_key(wav_path)}"
+    txt_key = f"{S3_PREFIX}/{_local_relative_key(txt_path)}"
+
+    print(f"  Local → S3 mapping:")
+    print(f"    {wav_path}  →  s3://{S3_BUCKET}/{wav_key}")
+    print(f"    {txt_path}  →  s3://{S3_BUCKET}/{txt_key}")
+
+    print(f"\n  ↑ Uploading WAV...")
+    wav_uri = upload_to_s3(wav_path, wav_key)
+    print(f"  ✔ WAV uploaded : {wav_uri}")
+
+    print(f"  ↑ Uploading TXT...")
+    txt_uri = upload_to_s3(txt_path, txt_key)
+    print(f"  ✔ TXT uploaded : {txt_uri}")
+
+    return {"wav_s3_uri": wav_uri, "txt_s3_uri": txt_uri}
 
 
 # ── Voice Activity Detection (VAD) ─────────────────────────────────────────────
@@ -461,23 +562,25 @@ def audio_url_to_text(
     vad_aggressiveness: int = 1,
     vad_min_speech_ratio: float = 0.01,
     show_vad_timeline: bool = False,
+    upload_s3: bool = True,
 ) -> dict:
     """
-    Download audio from URL, optionally run VAD, then transcribe to text.
-    Both the WAV file and the transcript .txt are saved to the same directory.
+    Download audio from URL, optionally run VAD, transcribe to text,
+    then upload both WAV and TXT to S3.
 
     Args:
         url                  : HTTP/HTTPS URL of the audio file
-        output_dir           : Directory where both WAV and TXT will be saved
+        output_dir           : Directory where both WAV and TXT will be saved locally
         backend              : Transcription engine: 'whisper', 'faster-whisper', 'google'
         model_size           : Whisper model size: tiny | base | small | medium | large
-        use_vad              : If True, run VAD before transcription; skip if no speech found
+        use_vad              : If True, run VAD before transcription
         vad_aggressiveness   : WebRTC VAD aggressiveness 0 (permissive) … 3 (aggressive)
         vad_min_speech_ratio : Minimum fraction of audio that must be speech (default 1%)
         show_vad_timeline    : Print per-second S/. timeline after VAD
+        upload_s3            : If True, upload WAV + TXT to S3 after transcription (default: True)
 
     Returns:
-        dict with keys: transcript, wav_file, text_file, vad (VADResult or None)
+        dict with keys: transcript, wav_file, text_file, vad, wav_s3_uri, txt_s3_uri
     """
     if not url.startswith(("http://", "https://")):
         raise ValueError(f"URL must start with http:// or https://  Got: {url}")
@@ -499,6 +602,7 @@ def audio_url_to_text(
     print(f"  Dir     : {output_dir}")
     print(f"  WAV     : {base_name}.wav")
     print(f"  TXT     : {base_name}.txt")
+    print(f"  S3      : s3://{S3_BUCKET}/{S3_PREFIX}/ {'(enabled)' if upload_s3 else '(disabled)'}")
     print(f"{'='*60}\n")
 
     # ── Step 1: Download ───────────────────────────────────────────
@@ -535,8 +639,8 @@ def audio_url_to_text(
     else:
         raise ValueError(f"Unknown backend: {backend}. Choose: whisper, faster-whisper, google")
 
-    # ── Step 4: Save transcript ────────────────────────────────────
-    print(f"\n[4/4] Saving transcript...")
+    # ── Step 4: Save transcript locally ───────────────────────────
+    print(f"\n[4/5] Saving transcript locally...")
     with open(txt_path, "w", encoding="utf-8") as f:
         f.write(f"Source : {url}\n")
         f.write(f"Backend: {backend} / model: {model_size}\n")
@@ -548,15 +652,25 @@ def audio_url_to_text(
         f.write(transcript)
         f.write("\n")
 
+    # ── Step 5: Upload to S3 ───────────────────────────────────────
+    s3_uris = {"wav_s3_uri": None, "txt_s3_uri": None}
+    if upload_s3:
+        try:
+            s3_uris = upload_outputs_to_s3(wav_path, txt_path, base_name)
+        except RuntimeError as e:
+            print(f"\n⚠  S3 upload failed (files are still saved locally): {e}")
+
     print(f"\n{'='*60}")
     print(f"  ✅ Done!")
     print(f"{'='*60}")
     print(f"\n📄 TRANSCRIPT:\n")
     print(transcript)
     print(f"\n{'='*60}")
-    print(f"  Output dir : {output_dir}")
-    print(f"  WAV file   : {wav_path}")
-    print(f"  TXT file   : {txt_path}")
+    print(f"  Local WAV  : {wav_path}")
+    print(f"  Local TXT  : {txt_path}")
+    if s3_uris["wav_s3_uri"]:
+        print(f"  S3 WAV     : {s3_uris['wav_s3_uri']}")
+        print(f"  S3 TXT     : {s3_uris['txt_s3_uri']}")
     print(f"{'='*60}\n")
 
     return {
@@ -564,6 +678,7 @@ def audio_url_to_text(
         "wav_file":   wav_path,
         "text_file":  txt_path,
         "vad":        vad_result,
+        **s3_uris,
     }
 
 
@@ -637,6 +752,15 @@ def main():
         help="Print a per-second speech/silence timeline after VAD analysis.",
     )
 
+    # ── S3 options ─────────────────────────────────────────────────
+    s3_group = parser.add_argument_group("S3 Upload")
+    s3_group.add_argument(
+        "--no-s3",
+        action="store_true",
+        default=False,
+        help="Disable S3 upload and keep files local only (default: S3 upload is ON)",
+    )
+
     args = parser.parse_args()
 
     try:
@@ -649,6 +773,7 @@ def main():
             vad_aggressiveness=args.vad_aggressiveness,
             vad_min_speech_ratio=args.vad_min_speech_ratio,
             show_vad_timeline=args.show_vad_timeline,
+            upload_s3=not args.no_s3,
         )
     except (ValueError, RuntimeError) as e:
         print(f"\n❌ Error: {e}", file=sys.stderr)
