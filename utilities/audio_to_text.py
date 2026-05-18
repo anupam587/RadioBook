@@ -519,26 +519,9 @@ def audio_url_to_text(
             print(f"\n⚠  No significant speech detected in the audio.")
             print(f"   Speech ratio ({vad_result.speech_ratio:.1%}) is below threshold "
                   f"({vad_min_speech_ratio:.1%}).")
-            print(f"   Skipping transcription. Use --no-vad to force transcription.\n")
-
-            # Save a note in the transcript file
-            transcript = "[NO SPEECH DETECTED — transcription skipped by VAD]"
-            with open(txt_path, "w", encoding="utf-8") as f:
-                f.write(f"Source : {url}\n")
-                f.write(f"Backend: {backend} / model: {model_size}\n")
-                f.write(f"VAD    : {vad_result.method}\n")
-                f.write(f"Date   : {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n")
-                f.write("=" * 60 + "\n\n")
-                f.write(transcript + "\n")
-
-            return {
-                "transcript": transcript,
-                "wav_file":   wav_path,
-                "text_file":  txt_path,
-                "vad":        vad_result,
-            }
-
-        print(f"\n  ✔ Speech detected — proceeding to transcription.\n")
+            print(f"   Proceeding to transcription anyway...\n")
+        else:
+            print(f"\n  ✔ Speech detected — proceeding to transcription.\n")
     else:
         print(f"[2/4] VAD skipped (--no-vad).\n")
 
